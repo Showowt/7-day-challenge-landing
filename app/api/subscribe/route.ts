@@ -14,10 +14,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
     }
     
+    const cleanEmail = email.toLowerCase().trim()
+    
     const { data, error } = await supabase
       .from('challenge_subscribers')
       .insert({
-        email: email.toLowerCase().trim(),
+        email: cleanEmail,
         referred_by: referredBy || null,
         source: source || 'landing_page',
       })
@@ -29,6 +31,30 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Already registered' }, { status: 409 })
       }
       throw error
+    }
+    
+    // Send welcome email (fire and forget - don't block on this)
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'http://localhost:3000'
+    
+    fetch(`${baseUrl}/api/send-welcome`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: cleanEmail, 
+        referralCode: data?.referral_code 
+      }),
+    }).catch(err => console.error('Welcome email failed:', err))
+    
+    // Update referrer's count if they were referred
+    if (referredBy) {
+      supabase
+        .from('challenge_subscribers')
+        .update({ referral_count: supabase.rpc('increment_referral') })
+        .eq('referral_code', referredBy)
+        .then(() => {})
+        .catch(err => console.error('Referral update failed:', err))
     }
     
     return NextResponse.json({ success: true, referralCode: data?.referral_code })
