@@ -704,7 +704,7 @@ export default function Home() {
                   <ExternalLink className="w-4 h-4" />
                 </a>
                 <a 
-                  href="https://machinemindconsulting.com"
+                  href="https://www.machinemindconsulting.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-8 py-4 rounded-xl font-semibold text-lg glass-card glass-card-hover flex items-center justify-center gap-2"
