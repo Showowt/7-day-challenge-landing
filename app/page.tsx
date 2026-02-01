@@ -189,12 +189,17 @@ export default function Home() {
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [surveyComplete, setSurveyComplete] = useState(false)
+  const [selectedDay, setSelectedDay] = useState('')
+  const [aiStruggle, setAiStruggle] = useState('')
+  const [isSavingSurvey, setIsSavingSurvey] = useState(false)
   const [error, setError] = useState('')
   const [subscriberCount, setSubscriberCount] = useState(523) // Starting number for social proof
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [showPitchForm, setShowPitchForm] = useState(false)
   const [referralCode, setReferralCode] = useState('')
+  const [currentEmail, setCurrentEmail] = useState('') // Store email for survey submission
   
   const scheduleRef = useRef<HTMLDivElement>(null)
   const notifyRef = useRef<HTMLDivElement>(null)
@@ -265,6 +270,7 @@ export default function Home() {
       }
       
       setReferralCode(data.referralCode || '')
+      setCurrentEmail(email) // Store for survey
       setIsSubmitted(true)
       setSubscriberCount(prev => prev + 1)
     } catch (err: any) {
@@ -275,6 +281,29 @@ export default function Home() {
       }
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleSurveySubmit = async () => {
+    if (!selectedDay) return
+    
+    setIsSavingSurvey(true)
+    try {
+      await fetch('/api/survey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentEmail,
+          interested_day: selectedDay,
+          ai_struggle: aiStruggle
+        })
+      })
+      setSurveyComplete(true)
+    } catch (err) {
+      console.error('Survey save failed')
+      setSurveyComplete(true) // Still show success, don't block user
+    } finally {
+      setIsSavingSurvey(false)
     }
   }
 
@@ -613,14 +642,99 @@ export default function Home() {
                   Join {subscriberCount.toLocaleString()}+ people already signed up
                 </p>
               </form>
-            ) : (
+            ) : !surveyComplete ? (
+              /* Survey after signup */
               <div className="space-y-6">
                 <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto">
                   <Check className="w-8 h-8 text-green-500" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-2">You're In! 🎉</h3>
-                  <p className="text-white/60">Check your inbox for confirmation.</p>
+                  <p className="text-white/60 mb-6">One quick question to personalize your experience:</p>
+                </div>
+                
+                {/* Day Selection */}
+                <div className="text-left">
+                  <label className="block text-white/80 font-semibold mb-3">
+                    Which day are you most hyped for?
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { value: 'monday', emoji: '💰', label: 'Money Monday - Revenue Leak Detector' },
+                      { value: 'tuesday', emoji: '🛠️', label: 'Tool Tuesday - Content Calendar' },
+                      { value: 'wednesday', emoji: '💅', label: 'Wellness Wednesday - Self-Care Concierge' },
+                      { value: 'thursday', emoji: '🔥', label: 'Thirsty Thursday - Party Planner' },
+                      { value: 'friday', emoji: '💎', label: 'Flex Friday - Luxury Concierge' },
+                      { value: 'saturday', emoji: '🎯', label: 'Side Hustle Saturday - Business Validator' },
+                      { value: 'sunday', emoji: '👑', label: 'Main Character Sunday - Personal Brand' },
+                    ].map((day) => (
+                      <button
+                        key={day.value}
+                        onClick={() => setSelectedDay(day.value)}
+                        className={`w-full p-3 rounded-xl text-left transition-all flex items-center gap-3 ${
+                          selectedDay === day.value 
+                            ? 'bg-pink-500/20 border-2 border-pink-500' 
+                            : 'bg-white/5 border-2 border-transparent hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="text-xl">{day.emoji}</span>
+                        <span className="text-sm text-white/80">{day.label}</span>
+                        {selectedDay === day.value && (
+                          <Check className="w-4 h-4 text-pink-500 ml-auto" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* AI Struggle (Optional) */}
+                <div className="text-left">
+                  <label className="block text-white/80 font-semibold mb-2">
+                    What's your #1 struggle with AI right now? <span className="text-white/40 font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    value={aiStruggle}
+                    onChange={(e) => setAiStruggle(e.target.value)}
+                    placeholder="e.g., I don't know where to start, it feels overwhelming, I tried ChatGPT but couldn't get good results..."
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 text-sm resize-none focus:outline-none focus:border-pink-500"
+                    rows={3}
+                  />
+                </div>
+                
+                {/* Submit Survey */}
+                <button
+                  onClick={handleSurveySubmit}
+                  disabled={!selectedDay || isSavingSurvey}
+                  className="w-full btn-primary py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSavingSurvey ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Continue <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => setSurveyComplete(true)}
+                  className="text-white/40 text-sm hover:text-white/60"
+                >
+                  Skip for now
+                </button>
+              </div>
+            ) : (
+              /* Final success state with Instagram */
+              <div className="space-y-6">
+                <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto">
+                  <Check className="w-8 h-8 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">You're All Set! 🔥</h3>
+                  <p className="text-white/60">Watch your inbox — first tool drops Monday.</p>
                 </div>
                 
                 {/* Follow on Instagram */}
